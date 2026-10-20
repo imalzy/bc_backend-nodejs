@@ -1,14 +1,15 @@
 const express = require('express');
 
 const user_controller = require('../controllers/user.controller');
-const {authLimit} = require("../middlewares/rate-limit.middleware");
+
+const { validateRegistration, validateUpdateProfile } = require('../validators/user.validator');
+const { validate } = require('../middlewares/validation.middleware');
 
 const router = express.Router();
 
 router.get("/", user_controller.getAll);
-router.post("/", user_controller.create);
-router.put("/", user_controller.update);
-router.delete("/", user_controller.remove);
-router.post("/login", authLimit, user_controller.login);
+router.post("/", validateRegistration, validate, user_controller.create);
+router.put("/:id", validateUpdateProfile, validate, user_controller.update);
+router.delete("/:id", user_controller.remove);
 
 module.exports = router;

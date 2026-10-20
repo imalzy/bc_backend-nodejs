@@ -3,15 +3,14 @@ const { successResponse } = require('../utils/response.util');
 
 async function getAll(req, res, next) {
     try {
-        const { page = 1, limit = 10 } = req.query;
-        // queryParams
+        const users = await user_services.findAll();
 
-
-        const result = await user_services.findAll(page, limit);
-
-        res.status(200).json(result);
+        res.status(200).json({
+            message: 'Success',
+            data: users
+        })
     } catch (error) {
-        next(error);
+        next(error)
     }
 }
 
@@ -30,7 +29,7 @@ async function create(req, res, next) {
     }
 }
 
-async function update(req, res, next) {
+async function update(req, res, next){
     const paramsId = req.params.id;
 
     try {
@@ -41,20 +40,12 @@ async function update(req, res, next) {
     }
 }
 
-async function remove(req, res, next) {
+async function remove(req, res, next){
     const paramsId = req.params.id;
 
     const deleted = await user_services.remove(paramsId);
     return successResponse(res, 'User deleted successfully', deleted, 200);
 }
-
-async function login(req, res, next) {
-    const { email, password } = req.body;
-
-    const user = await user_services.login({email,password});
-    return successResponse(res, 'Login Success', user, 200);
-
-}
 module.exports = {
-    getAll, create, update, remove, login
+    getAll, create, update, remove
 }
