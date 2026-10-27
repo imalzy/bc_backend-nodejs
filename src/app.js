@@ -10,7 +10,7 @@ const {
 } = require("./middlewares/error.middleware");
 const { apiLimiter } = require("./middlewares/rate-limit.middleware");
 const corsMiddleware = require("./middlewares/cors.middleware");
-
+const bodyParser = require('body-parser')
 
 const app = express();
 app.use(
@@ -18,7 +18,14 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
+// app.use(express.json({ limit: "10kb" }));
+// app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded())
+
+// parse application/json
+app.use(bodyParser.json())
 app.use(corsMiddleware);
 
 // import routes
@@ -27,9 +34,10 @@ const category_routes = require("./routes/category.route");
 const product_routes = require("./routes/product.route");
 const supplier_routes = require("./routes/supplier.route");
 const auth_routes = require("./routes/auth.route");
+const file_routes = require("./routes/file.route");
 
-app.use(express.json({ limit: "10kb" }));
-app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+
+
 
 app.use("/api", apiLimiter);
 app.use("/api/users", user_routes);
@@ -37,6 +45,7 @@ app.use("/api/categories", category_routes);
 app.use("/api/products", product_routes);
 app.use("/api/suppliers", supplier_routes);
 app.use("/api/auth", auth_routes);
+app.use("/api/files", file_routes);
 
 app.get("/health", async (req, res) => {
   try {

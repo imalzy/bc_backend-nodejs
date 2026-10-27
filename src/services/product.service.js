@@ -11,7 +11,7 @@ async function findById(id) {
     return rows[0] || null;
 }
 
-async function create({ code, name, category_id, supplier_id, price, stock }) {
+async function create({ code, name, category_id, supplier_id, price, stock }, images = []) {
     const id = v4();
 
     await connect.query(
@@ -20,6 +20,13 @@ async function create({ code, name, category_id, supplier_id, price, stock }) {
         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [id, code, name, category_id, supplier_id ?? null, price, stock],
     );
+
+    for (const image of images) {
+        await connect.query(
+            `INSERT INTO product_images (id, name, product_id) VALUES (?, ?, ?)`,
+            [v4(), image.name, id],
+        );
+    }
 
     return findById(id);
 }

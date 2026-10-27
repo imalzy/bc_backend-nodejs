@@ -1,6 +1,7 @@
 
 const express = require('express');
 const product_controller = require('../controllers/product.controller');
+const upload = require('../middlewares/upload.middleware');
 
 const {
     validateProduct,
@@ -14,7 +15,7 @@ const router = express.Router();
 
 router.get('/', product_controller.getAll);
 router.get('/:id', product_controller.getById);
-router.post('/', validateProduct, validate, product_controller.create);
+router.post('/', upload.array('images', 10), validateProduct, validate, product_controller.create);
 router.put('/:id', validateUpdateProduct, validate, product_controller.update);
 router.delete('/:id', product_controller.remove);
 

@@ -44,6 +44,7 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
+
     const payload = {
       code: req.body.code,
       name: req.body.name,
@@ -53,7 +54,12 @@ async function create(req, res, next) {
       stock: req.body.stock,
     };
 
-    const product = await product_services.create(payload);
+    const images = (req.files || []).map((file) => {
+      return {
+        name: file.filename,
+      }
+    });
+    const product = await product_services.create(payload, images);
 
     return successResponse(res, "Product created successfully", product, 201);
   } catch (error) {
