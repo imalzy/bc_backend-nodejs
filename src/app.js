@@ -65,7 +65,13 @@ app.get("/health", async (req, res) => {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log(`Server running at http://localhost:${PORT}`),
-);
+// Only listen to port when running locally (not in serverless/Vercel)
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () =>
+    console.log(`Server running at http://localhost:${PORT}`),
+  );
+}
+
+module.exports = app;
+
