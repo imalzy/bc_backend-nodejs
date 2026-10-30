@@ -1,5 +1,6 @@
 const { v4 } = require("uuid");
 const connect = require("../config/database");
+const upload = require("../middlewares/upload.middleware");
 
 const table_name = "products";
 
@@ -13,25 +14,42 @@ async function findById(id) {
 
 async function create({ code, name, category_id, supplier_id, price, stock }, images = []) {
     const id = v4();
+    let conn;
+    try {
+        conn = await connect.getConnection();
+        await conn.beginTransaction();
 
-    await connect.query(
-        `INSERT INTO ${table_name}
+        await conn.query(
+            `INSERT INTO ${table_name}
         (id, code, name, category_id, supplier_id, price, stock)
         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [id, code, name, category_id, supplier_id ?? null, price, stock],
-    );
-
-    for (const image of images) {
-        await connect.query(
-            `INSERT INTO product_images (id, name, product_id) VALUES (?, ?, ?)`,
-            [v4(), image.name, id],
+            [id, code, name, category_id, supplier_id ?? null, price, stock],
         );
+
+        for (const image of images) {
+            await conn.query(
+                `INSERT INTO product_images (id, name, product_id) VALUES (?, ?, ?)`,
+                [v4(), image.name, id],
+            );
+        }
+
+        await conn.commit();
+    } catch (error) {
+        console.error('Error creating product:', error);
+        if (conn) {
+            await conn.rollback();
+        }
+        throw error;
+    } finally {
+        if (conn) {
+            conn.release();
+        }
     }
 
     return findById(id);
 }
 
-async function update(id, data) {
+async function update(id, data, images = []) {
     const existing = await findById(id);
 
     if (!existing) return null;
@@ -55,20 +73,85 @@ async function update(id, data) {
         }
     }
 
-    if (fields.length === 0) {
-        const error = new Error("Minimal satu field harus diisi");
+    let deleteImageIds = [];
+    const rawDeleteImageIds = data.delete_image_ids;
+
+    if (rawDeleteImageIds) {
+        if (Array.isArray(rawDeleteImageIds)) {
+            deleteImageIds = rawDeleteImageIds;
+        } else if (typeof rawDeleteImageIds === 'string') {
+            const parsed = JSON.parse(rawDeleteImageIds);
+            if (Array.isArray(parsed)) {
+                deleteImageIds = parsed;
+            } else {
+                deleteImageIds = [parsed];
+            }
+        }
+    }
+
+    if (fields.length === 0 && images.length === 0 && deleteImageIds.length === 0) {
+        const error = new Error("Minimal satu field, image baru, atau delete image id harus diisi");
         error.status = 400;
         throw error;
     }
 
-    values.push(id);
+    let conn;
+    let imagesToDelete = [];
 
-    await connect.query(
-        `UPDATE ${table_name}
-         SET ${fields.join(", ")}
-         WHERE id = ?`,
-        values,
-    );
+    try {
+        conn = await connect.getConnection();
+        await conn.beginTransaction();
+
+        if (fields.length > 0) {
+            await conn.query(
+                `UPDATE ${table_name} SET ${fields.join(", ")} WHERE id = ?`,
+                [...values, id],
+            );
+        }
+
+        if (deleteImageIds.length > 0) { // ada yang mau di takeout
+            imagesToDelete = await conn.query(
+                `SELECT id, name FROM product_images WHERE id IN (?) AND product_id = ?`,
+                [deleteImageIds, id]
+            );
+        }
+
+        if (imagesToDelete.length > 0) {
+            const idsRemove = imagesToDelete.map(img => img.id)
+            await conn.query(
+                `DELETE FROM product_images WHERE id IN (?) AND product_id = ?`,
+                [idsRemove, id]
+            );
+        }
+
+        for (const image of images) {
+            await conn.query(
+                `INSERT INTO product_images (id, name, product_id) VALUES (?, ?, ?)`,
+                [v4(), image.name, id],
+            );
+        }
+
+        conn.commit();
+
+        for (const oldImage of imagesToDelete) {
+            if (oldImage.name) {
+                const filePath = path.join("uploads", oldImage.name);
+                if (fs.existingSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+        }
+    } catch (error) {
+        if (conn) {
+            await conn.rollback();
+        }
+    } finally {
+        if (conn) {
+            conn.release();
+        }
+    }
+
+    values.push(id);
 
     return findById(id);
 }
@@ -77,6 +160,44 @@ async function remove(id) {
     const result = await connect.query(`DELETE FROM ${table_name} WHERE id = ?`, [
         id,
     ]);
+    let conn;
+    try {
+        conn = await connect.getConnection();
+        await conn.beginTransaction();
+        const images = await conn.query(
+            `SELECT name FROM product_images WHERE product_id = ?`,
+            [id]
+        );
+
+        await conn.query(
+            `DELETE FROM product_images WHERE product_id = ?`,
+            [id]
+        );
+
+        const result = await conn.query(`DELETE FROM ${table_name} WHERE id = ?`, [
+            id,
+        ]);
+
+        if (!result) {
+            await conn.rollback();
+            return false;
+        }
+
+        await conn.commit();
+        for (const image of images) {
+            if (image.name) {
+                const filePath = path.join("uploads", image.name);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+        }
+    } catch (error) {
+        if (conn) await conn.rollback();
+        throw error;
+    } finally {
+        if (conn) conn.release();
+    }
 
     return result.affectedRows > 0;
 }

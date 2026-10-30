@@ -69,7 +69,12 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    const product = await product_services.update(req.params.id, req.body);
+    const images = (req.files || []).map((file) => {
+      return {
+        name: file.filename,
+      }
+    });
+    const product = await product_services.update(req.params.id, req.body, images);
 
     if (!product) {
       return res.status(404).json({
