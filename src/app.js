@@ -12,9 +12,16 @@ const { apiLimiter } = require("./middlewares/rate-limit.middleware");
 const corsMiddleware = require("./middlewares/cors.middleware");
 const bodyParser = require('body-parser')
 
+const {
+  swaggerUi,
+  swaggerDocument,
+  swaggerUiOptions,
+} = require("./config/swagger");
+
 const app = express();
 app.use(
   helmet({
+    contentSecurityPolicy: false, // Allow Swagger UI CDN scripts and styles
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
@@ -27,6 +34,22 @@ app.use(bodyParser.urlencoded())
 // parse application/json
 app.use(bodyParser.json())
 app.use(corsMiddleware);
+
+// Swagger Documentation UI & OpenAPI JSON Spec
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, swaggerUiOptions)
+);
+app.get("/api-docs.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerDocument);
+});
+
+// Root route redirects to Swagger documentation
+app.get("/", (req, res) => {
+  res.redirect("/api-docs");
+});
 
 // import routes
 const user_routes = require("./routes/user.route");

@@ -1,0 +1,824 @@
+// Swagger OpenAPI Configuration
+const swaggerUi = require("swagger-ui-express");
+
+const swaggerDocument = {
+  openapi: "3.0.0",
+  info: {
+    title: "Binus Center Backend API - v8",
+    version: "1.0.0",
+    description:
+      "Production-ready Express.js REST API with clean architecture, security best practices (OWASP, Helmet, Rate Limiter), MariaDB (Local) & Supabase PostgreSQL (Cloud) support.",
+    contact: {
+      name: "API Support",
+    },
+  },
+  servers: [
+    {
+      url: "/",
+      description: "Current Environment (Local / Vercel)",
+    },
+    {
+      url: "http://localhost:3000",
+      description: "Local Development Server",
+    },
+  ],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Enter your JWT token in the format: Bearer <token>",
+      },
+    },
+    schemas: {
+      ErrorResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: false },
+          message: { type: "string", example: "Error message details" },
+        },
+      },
+      PaginationMeta: {
+        type: "object",
+        properties: {
+          page: { type: "integer", example: 1 },
+          limit: { type: "integer", example: 10 },
+          total: { type: "integer", example: 42 },
+        },
+      },
+      User: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          name: { type: "string", example: "John Doe" },
+          email: { type: "string", format: "email", example: "john@example.com" },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      Category: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid", example: "a3b1c2d3-4e5f-6a7b-8c9d-0e1f2a3b4c5d" },
+          name: { type: "string", example: "Electronics" },
+          description: { type: "string", example: "Electronic devices and accessories" },
+          created_at: { type: "string", format: "date-time" },
+          edited_at: { type: "string", format: "date-time" },
+        },
+      },
+      Supplier: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid", example: "b2c3d4e5-6f7a-8b9c-0d1e-2f3a4b5c6d7e" },
+          name: { type: "string", example: "PT Global Tech" },
+          phone: { type: "string", example: "08123456789" },
+          email: { type: "string", format: "email", example: "supplier@globaltech.com" },
+          address: { type: "string", example: "Jl. Sudirman No. 10, Jakarta" },
+          created_at: { type: "string", format: "date-time" },
+        },
+      },
+      Product: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid", example: "c3d4e5f6-7a8b-9c0d-1e2f-3a4b5c6d7e8f" },
+          code: { type: "string", example: "PRD-001" },
+          name: { type: "string", example: "Wireless Mouse" },
+          category_id: { type: "string", format: "uuid", nullable: true },
+          category_name: { type: "string", nullable: true, example: "Electronics" },
+          supplier_id: { type: "string", format: "uuid", nullable: true },
+          supplier_name: { type: "string", nullable: true, example: "PT Global Tech" },
+          price: { type: "number", example: 150000 },
+          stock: { type: "integer", example: 50 },
+          created_at: { type: "string", format: "date-time" },
+          updated_at: { type: "string", format: "date-time" },
+        },
+      },
+      ProductImage: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string", example: "123e4567-e89b-12d3-a456-426614174000.png" },
+          product_id: { type: "string", format: "uuid" },
+          created_at: { type: "string", format: "date-time" },
+        },
+      },
+    },
+  },
+  paths: {
+    "/health": {
+      get: {
+        tags: ["Health"],
+        summary: "API Health & Database Check",
+        description: "Checks if the Express server and connected database (MariaDB or Supabase) are operational.",
+        responses: {
+          200: {
+            description: "API and Database operational",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "API running!" },
+                    database: { type: "string", example: "connected" },
+                  },
+                },
+              },
+            },
+          },
+          500: {
+            description: "Database connection failed",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // --- AUTH ---
+    "/api/auth/register": {
+      post: {
+        tags: ["Auth"],
+        summary: "Register new account",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "email", "password"],
+                properties: {
+                  name: { type: "string", example: "Alice Wonder" },
+                  email: { type: "string", format: "email", example: "alice@example.com" },
+                  password: { type: "string", format: "password", example: "Secret123!" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "User successfully registered",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    name: { type: "string" },
+                    email: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Invalid input" },
+          409: { description: "Email already registered" },
+        },
+      },
+    },
+    "/api/auth/login": {
+      post: {
+        tags: ["Auth"],
+        summary: "User login",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email", "password"],
+                properties: {
+                  email: { type: "string", format: "email", example: "alice@example.com" },
+                  password: { type: "string", format: "password", example: "Secret123!" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Login successful with JWT Bearer token",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string", example: "Login berhasil" },
+                    token: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+                    user: { $ref: "#/components/schemas/User" },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Email & password required" },
+          401: { description: "Invalid email or password" },
+        },
+      },
+    },
+    "/api/auth/me": {
+      get: {
+        tags: ["Auth"],
+        summary: "Get current logged-in user profile",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Current user profile data",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    user: { $ref: "#/components/schemas/User" },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "Unauthorized / Missing or invalid token" },
+        },
+      },
+    },
+
+    // --- USERS ---
+    "/api/users": {
+      get: {
+        tags: ["Users"],
+        summary: "Get all users",
+        responses: {
+          200: {
+            description: "List of users",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/User" },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Users"],
+        summary: "Create a new user",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "email", "password"],
+                properties: {
+                  name: { type: "string", example: "Bob Smith" },
+                  email: { type: "string", format: "email", example: "bob@example.com" },
+                  password: { type: "string", format: "password", example: "Password123" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "User created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/User" },
+              },
+            },
+          },
+          400: { description: "Validation error" },
+        },
+      },
+    },
+    "/api/users/{id}": {
+      put: {
+        tags: ["Users"],
+        summary: "Update user profile",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string", example: "Bob Updated" },
+                  email: { type: "string", format: "email", example: "bob.updated@example.com" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "User updated",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/User" },
+              },
+            },
+          },
+          404: { description: "User not found" },
+        },
+      },
+      delete: {
+        tags: ["Users"],
+        summary: "Delete user",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          200: { description: "User deleted" },
+          404: { description: "User not found" },
+        },
+      },
+    },
+
+    // --- CATEGORIES ---
+    "/api/categories": {
+      get: {
+        tags: ["Categories"],
+        summary: "Get list of categories (Paginated)",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 10 } },
+        ],
+        responses: {
+          200: {
+            description: "Paginated categories",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Category" },
+                    },
+                    meta: { $ref: "#/components/schemas/PaginationMeta" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Categories"],
+        summary: "Create a new category",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", example: "Fashion" },
+                  description: { type: "string", example: "Clothing, shoes, and accessories" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Category created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Category" },
+              },
+            },
+          },
+          400: { description: "Validation error" },
+        },
+      },
+    },
+    "/api/categories/{id}": {
+      get: {
+        tags: ["Categories"],
+        summary: "Get category by ID",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Category" },
+              },
+            },
+          },
+          404: { description: "Category not found" },
+        },
+      },
+      put: {
+        tags: ["Categories"],
+        summary: "Update category",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string", example: "Home Appliances" },
+                  description: { type: "string", example: "Appliances and household items" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Category" },
+              },
+            },
+          },
+          404: { description: "Category not found" },
+        },
+      },
+      delete: {
+        tags: ["Categories"],
+        summary: "Delete category",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: { description: "Category deleted" },
+          404: { description: "Category not found" },
+        },
+      },
+    },
+
+    // --- PRODUCTS ---
+    "/api/products": {
+      get: {
+        tags: ["Products"],
+        summary: "Get list of products (Paginated & Filterable)",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 10 } },
+          { name: "search", in: "query", description: "Search by code or name", schema: { type: "string" } },
+          { name: "category_id", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "supplier_id", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: {
+            description: "Paginated products list",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Product" },
+                    },
+                    meta: { $ref: "#/components/schemas/PaginationMeta" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Products"],
+        summary: "Create a new product with optional image uploads",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["code", "name", "price", "stock"],
+                properties: {
+                  code: { type: "string", example: "PRD-101" },
+                  name: { type: "string", example: "Mechanical Keyboard" },
+                  category_id: { type: "string", format: "uuid" },
+                  supplier_id: { type: "string", format: "uuid" },
+                  price: { type: "number", example: 450000 },
+                  stock: { type: "integer", example: 25 },
+                  images: {
+                    type: "array",
+                    items: { type: "string", format: "binary" },
+                    description: "Up to 10 product images (JPG, PNG, WEBP)",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Product created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Product" },
+              },
+            },
+          },
+          400: { description: "Validation error" },
+        },
+      },
+    },
+    "/api/products/{id}": {
+      get: {
+        tags: ["Products"],
+        summary: "Get product details by ID",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Product" },
+              },
+            },
+          },
+          404: { description: "Product not found" },
+        },
+      },
+      put: {
+        tags: ["Products"],
+        summary: "Update product and manage images",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  code: { type: "string", example: "PRD-101-V2" },
+                  name: { type: "string", example: "RGB Mechanical Keyboard" },
+                  category_id: { type: "string", format: "uuid" },
+                  supplier_id: { type: "string", format: "uuid" },
+                  price: { type: "number", example: 520000 },
+                  stock: { type: "integer", example: 30 },
+                  delete_image_ids: {
+                    type: "string",
+                    description: "JSON array of image IDs to delete, e.g. [\"uuid-1\", \"uuid-2\"]",
+                    example: "[\"550e8400-e29b-41d4-a716-446655440000\"]",
+                  },
+                  images: {
+                    type: "array",
+                    items: { type: "string", format: "binary" },
+                    description: "New images to attach",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Product" },
+              },
+            },
+          },
+          404: { description: "Product not found" },
+        },
+      },
+      delete: {
+        tags: ["Products"],
+        summary: "Delete product",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: { description: "Product deleted" },
+          404: { description: "Product not found" },
+        },
+      },
+    },
+
+    // --- SUPPLIERS ---
+    "/api/suppliers": {
+      get: {
+        tags: ["Suppliers"],
+        summary: "Get list of suppliers (Paginated)",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 10 } },
+        ],
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Supplier" },
+                    },
+                    meta: { $ref: "#/components/schemas/PaginationMeta" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Suppliers"],
+        summary: "Create a new supplier",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", example: "CV Mitra Sejahtera" },
+                  phone: { type: "string", example: "081987654321" },
+                  email: { type: "string", format: "email", example: "mitra@example.com" },
+                  address: { type: "string", example: "Jl. Gatot Subroto No. 45" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Supplier" },
+              },
+            },
+          },
+          400: { description: "Validation error" },
+        },
+      },
+    },
+    "/api/suppliers/{id}": {
+      get: {
+        tags: ["Suppliers"],
+        summary: "Get supplier by ID",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Supplier" },
+              },
+            },
+          },
+          404: { description: "Supplier not found" },
+        },
+      },
+      put: {
+        tags: ["Suppliers"],
+        summary: "Update supplier",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  phone: { type: "string" },
+                  email: { type: "string", format: "email" },
+                  address: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Supplier" },
+              },
+            },
+          },
+          404: { description: "Supplier not found" },
+        },
+      },
+      delete: {
+        tags: ["Suppliers"],
+        summary: "Delete supplier",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          200: { description: "Supplier deleted" },
+          404: { description: "Supplier not found" },
+        },
+      },
+    },
+
+    // --- FILES ---
+    "/api/files": {
+      get: {
+        tags: ["Files"],
+        summary: "List uploaded files",
+        responses: {
+          200: {
+            description: "List of uploaded files",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    files: {
+                      type: "array",
+                      items: { type: "string", example: "sample.png" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Files"],
+        summary: "Upload single file (image or pdf up to 400kb)",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["file"],
+                properties: {
+                  file: {
+                    type: "string",
+                    format: "binary",
+                    description: "Supported: jpeg, jpg, png, webp, pdf",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "File successfully uploaded" },
+          400: { description: "No file or unsupported file type" },
+        },
+      },
+    },
+  },
+};
+
+// CDN CSS & JS options ensure Swagger UI works seamlessly on Vercel Serverless
+const swaggerUiOptions = {
+  customCssUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css",
+  customJs: [
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.js",
+  ],
+  customSiteTitle: "Binus Center Backend API Documentation",
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+};
+
+module.exports = {
+  swaggerUi,
+  swaggerDocument,
+  swaggerUiOptions,
+};

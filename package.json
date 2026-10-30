@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/app.js",
+    "generate:swagger": "node scripts/generate-swagger.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -23,6 +24,8 @@
     "jsonwebtoken": "^9.0.3",
     "mariadb": "^3.5.4",
     "multer": "^2.5.0",
+    "pg": "^8.13.1",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.1"
   },
   "devDependencies": {
